@@ -9,31 +9,64 @@ Parse.Cloud.define("hello", function(request, response) {
 });
 
 // If this is a new sound, tell the nodejs server to use the next loud noise
-// as a matching target. 
-// If this an update of the state of an existing sound, change the channel
-// subscription to reflect this
+// as a matching target. Do nothing if this is an update.
+Parse.Cloud.beforeSave("Sound", function(request, response) {
+// IMPORTANT: logging the request object prevents the save from happening. dont do: console.log(request)
+	if (request.object.get("objectId") == null) {	
+// this is a new sound, set the variable that tells the afterSave function
+// to set the next loud noise as a match target
+		setUseNextNoise(true);	
+		console.log("nodejs server instructed to set next loud noise to be a match target");
+	}
+	response.success();
+});
+
 Parse.Cloud.afterSave("Sound", function(request) {
-	console.log("Sound saved");
-	var soundName = request.object.get("name");
-	var query = new Parse.Query("Sound");
-	query.equalTo("name", soundName);
+	console.log(request);
+
+
+	if (getUseNextNoise()) {
+		setUseNextNoise(false);
+		setNextAsTarget(request);
+	}
+
+});
+
+function getUseNextNoise() {
+	var query = new Parse.Query("UseNextNoise");
 	query.find({
 		success: function(results) {
-			if (results.length == 0) {
-				// this is a new sound, notify the nodejs server
-				setNextAsTarget(request);
-			}
+			var use = results[0].get("use");
+			console.log("UseNextNoise variable currently set to: " + use);
+			return use;	
 		},
-		error: function(error) {
-			console.log("error: " + error.code + " " + error.message);
+		error: function(results) {
+			console.log("error reading UseNextNoise varialbe");
+			return false;
 		}
 	});
-});
+}
+
+function setUseNextNoise(val) {
+	var query = new Parse.Query("UseNextNoise");
+	query.find({
+		success: function(results) {
+			console.log("results length " + results.length);
+			results[0].set("use", val);
+			console.log("UseNextNoise variable now currently set to: " + val);
+			results[0].save();
+		},
+		error: function(results) {
+			console.log("error setting UseNextNoise varialbe");
+		}
+	});
+}
+
 
 function setNextAsTarget(request) {
 	var urlAndPath = serverHostname + ':' + serverPort + '/setNextNoiseAsTarget?filename=';
 	urlAndPath += request.object.id; 
-	console.log(urlAndPath);
+	console.log("URL and Path: " + urlAndPath);
 	Parse.Cloud.httpRequest({
 		method: 'GET',
 		url: urlAndPath,
@@ -136,7 +169,7 @@ Parse.Cloud.define("setupSuccess", function(request, response) {
 function setupSuccess() {
 	console.log('device setup success');
 	Parse.Push.send({
-		channels: ['cat'],
+		channels: [defaultChannel],
 		data: {
 			alert: "flyport set up"
 		}
