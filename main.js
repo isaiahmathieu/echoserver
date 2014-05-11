@@ -1,5 +1,7 @@
 var serverHostname = 'klement.cs.washington.edu';
 var serverPort = 9876;
+var defaultChannel = 'default';
+
 // Use Parse.Cloud.define to define as many cloud functions as you want.
 // For example:
 Parse.Cloud.define("hello", function(request, response) {
@@ -13,8 +15,7 @@ Parse.Cloud.define("hello", function(request, response) {
 Parse.Cloud.afterSave("Sound", function(request) {
 	console.log("Sound saved");
 	var soundName = request.object.get("name");
-	var Sound = Parse.Object.extend("Sound");
-	var query = new Parse.Query(Sound);
+	var query = new Parse.Query("Sound");
 	query.equalTo("name", soundName);
 	query.find({
 		success: function(results) {
@@ -22,54 +23,12 @@ Parse.Cloud.afterSave("Sound", function(request) {
 				// this is a new sound, notify the nodejs server
 				setNextAsTarget(request);
 			}
-			// now update the subscription status
-			updateChannel(request);
 		},
 		error: function(error) {
 			console.log("error: " + error.code + " " + error.message);
 		}
 	});
 });
-
-function updateChannel(request) {
-	var query = new Parse.Query(Parse.Installation);
-	query.equalTo("installationId", request.installationId);
-	query.find({
-		success: function(result) {
-			// get the installation object
-			var obj = result[0];
-			// get the array of channels
-			var channels = obj.get("channels");
-			// get the new state of the subscription from the Sound object
-			var subscribe = request.object.get("enabled");
-			// channel names are the objectId of the Sound object prepended with
-			// an 'x'
-			var channelName = 'x' + request.object.id;
-			if (subscribe) {
-				// channelName should NOT be in the array already. May need to sanity
-				// check this in the future. For now just append to the end
-				channels.push(channelName);
-			} else {
-				// find the element to remove
-				var index = -1;
-				for (var i = 0; i < channels.length; i++) {
-					if (channels[i] == channelName) {
-						index =	i;
-					}
-				}
-				// if it was found, remove it
-				if (index != -1) {
-					channels.splice(index, 1);
-				}
-
-			}
-			obj.save();
-		},
-		error: function(error) {
-			console.log("error: " + error.code + " " + error.message);
-		}
-	});
-}
 
 function setNextAsTarget(request) {
 	var urlAndPath = serverHostname + ':' + serverPort + '/setNextNoiseAsTarget?filename=';
@@ -98,19 +57,37 @@ Parse.Cloud.afterSave("Event", function(request) {
 	// however, if you want to acces the objectId field you do object.id
 	// because object.get('objectId') doesn't work...confusing
 	var matchFound = request.object.get("match");
-	var filename = request.object.get("eventFilename");
+	var eventFilename = request.object.get("eventFilename");
 	if (matchFound) {	
-		var channel = 'x' + request.object.get("matchFilename");
-		sendPushForMatch(filename, channel);
+		var sound = getSoundObject("matchFilename");
+		if (sound.get("enabled")) {
+			sendPushForMatch(sound.get("name"), eventFilename);
+		}
 	} else {
-		var filename = request.object.get("eventFilename");
-		sendPushForNoMatch(filename);
+		sendPushForNoMatch(eventFilename);
 	}
 });
 
+function getSoundObject(objectId) {
+	var query = new Parse.Query("Sound");
+	query.equalTo("objectId", objectId);
+	query.find({
+		success: function(results) {
+			if (results.length == 1) {
+				return results[0];
+			} else {
+				console.log("expected only one result, got: " + results.length);	
+			}
+		},
+		error: function() {
+			console.log("No Sound object with objectId: " + objectId + " found");	
+		}
+	});
+}
+
 function sendPushForNoMatch(filename) {
 	Parse.Push.send({
-		channels: ['cat'],
+		channels: [defaultChannel],
 		data: {
 			alert: "sound no match :(",
 			filename : filename,
@@ -129,12 +106,12 @@ function sendPushForNoMatch(filename) {
 });
 }
 
-function sendPushForMatch(eventRecordingFilename, channel) {
-	console.log('sending push to channel: ' + channel + ' for match on event with filename: ' + eventRecordingFilename);
+function sendPushForMatch(soundName, eventRecordingFilename) {
+	console.log("sending push for match of sound: " + soundName);
 	Parse.Push.send({
-		channels: [channel],
+		channels: [defaultChannel],
 		data: {
-			alert: "matched a noise!",
+			alert: "noise detected: " + soundName,
 			filename : eventRecordingFilename,
 			action: "org.cs.washington.cse477.SOUND_DATA_GETTER",
 			match: true
