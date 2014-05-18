@@ -95,10 +95,10 @@ Parse.Cloud.beforeSave("Event", function(request, response) {
 });
 */
 
-Parse.Cloud.afterSave("Event", function(request) {
+Parse.Cloud.beforeSave("Event", function(request, response) {
 	console.log("Event occurred");
-	console.log(request);
-	console.log(request.object);
+	//console.log(request);
+	//console.log(request.object);
 	// request.object is a ParseObject, not a JSON object.
 	// this means you have to access its data with the .get("key") method
 	// however, if you want to acces the objectId field you do object.id
@@ -115,10 +115,14 @@ Parse.Cloud.afterSave("Event", function(request) {
 		console.log('looking for Sound object with id: ' + matchFilename);
 		query.get(matchFilename, {
 			success: function(result) {
+				console.log('found object, now setting matchSoundName');
 				var matchSoundName = result.get("name");
 				if (result.get("enabled")) {
 					sendPushForMatch(matchSoundName, eventFilename);
 				}
+				// now set matchSoundName in the to-be saved object
+				request.object.set("matchSoundName", matchSoundName);
+				
 			}, 
 			error: function() {
 				console.log("No Sound object with objectId: " + matchFilename + " found");	
@@ -147,6 +151,7 @@ Parse.Cloud.afterSave("Event", function(request) {
 		}
 	*/
 	}
+	response.success();
 });
 
 
