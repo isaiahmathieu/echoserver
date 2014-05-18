@@ -240,7 +240,7 @@ function newEvent(matchFound, matchFilename, eventRecordingFilename) {
 		// was found
 		"matchFilename" : matchFound ? matchFilename : null,
 		"eventFilename" : eventRecordingFilename,
-		"matchSoundName" : "" 
+		"action" : "org.cs.washington.cse477.NOTIFICATION_PUSH"
 	};
 	console.log(body);
 	req.write(JSON.stringify(body));
