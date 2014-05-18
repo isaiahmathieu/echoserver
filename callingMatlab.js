@@ -5,41 +5,41 @@ var fs = require('fs');
 
 var resultsFilename = 'results.txt';
 
-var filename = 'dedede.wav';
-
 const matchAgainst = 'matchAgainst/';
 const eventRecordings = 'eventRecordings/';
-
-
 var matlabPath = process.env.MATLAB_BINARY;
 
-// build up command starting with the path to the matlab binary
-var cmd = matlabPath + 'matlab -nojvm -nodisplay -nosplash -r \"matchSounds ';
-// now add arguments. first the path to the event recordings folder 
-cmd += '\"' +  __dirname + '/' + eventRecordings + filename + '\" ';
-// add the second argument which is the folder with the sounds to match against
-cmd += '\"' + __dirname + '/' + matchAgainst + '\" ';
-// add the last argument which is the path+name of the file to write the results to
-cmd += '\"' + __dirname + '/' + resultsFilename;
-// add the exit command to exit matlab
-cmd += '\";exit;\"';
-console.log(cmd);
+runAudioMatcher('dedede.wav');
 
-//cmd += '\"homeSounds/dedede.wav\" \"homeSounds\/\" \"' + resultsFilename + '\";exit\"';
+function runAudioMatcher(filename) {
 
-worker.exec(cmd, function(err, out, stderr) {
-	//console.log(out);
-	checkResults();
-});
+	// build up command starting with the path to the matlab binary
+	var cmd = matlabPath + 'matlab -nojvm -nodisplay -nosplash -r \"matchSounds ';
+	// now add arguments. first the path to the event recordings folder 
+	cmd += '\"' +  __dirname + '/' + eventRecordings + filename + '\" ';
+	// add the second argument which is the folder with the sounds to match against
+	cmd += '\"' + __dirname + '/' + matchAgainst + '\" ';
+	// add the last argument which is the path+name of the file to write the results to
+	cmd += '\"' + __dirname + '/' + resultsFilename;
+	// add the exit command to exit matlab
+	cmd += '\";exit;\"';
+	console.log(cmd);
+
+	worker.exec(cmd, function(err, out, stderr) {
+		//console.log(out);
+		checkResults();
+	});
 
 function checkResults() {
-	var result = fs.readFileSync(resultsFilename);
-	if (result === 'NO_MATCH') {
-		console.log('no match sorry');
-	} else {
-		console.log('match for: ' + result);
+		var result = fs.readFileSync(resultsFilename);
+		if (result === 'NO_MATCH') {
+			console.log('no match sorry');
+		} else {
+			console.log('match for: ' + result);
+		}
 	}
 }
+
 
 
 

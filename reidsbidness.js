@@ -58,10 +58,12 @@ http.createServer(function(req, res) {
 				  console.log(pathToNewFile);
 				// At this point we will run the audio matching tool to see if
 				// the sample can be matched to anything. migth look like this:
-				var matchedFile = runAudioMatcher(filename);	
+				//var matchedFile = runAudioMatcher(filename);	
+				matchAudioSendEvent(filename);
+				
 				// if runAudioMatcher returns a filename it found a match. it returns null
 				// then it did not.
-				newEvent(matchedFile != null, matchedFile, filename);
+				//newEvent(matchedFile != null, matchedFile, filename);
 			  }
 			  newFile = fs.createWriteStream(pathToNewFile, {flags: 'w'}); 
 			  newFile.on('error', function(e) {
@@ -221,22 +223,37 @@ function newEvent(matchFound, matchFilename, eventRecordingFilename) {
 
 var matlabPath = process.env.MATLAB_BINARY;
 
-function runAudioMatcher(filename) {
-	var cmd = matlabPath + 'matlab -nojvm -nodisplay -nosplash -r "matchSounds \"homeSounds/dedede.wav\" \"homeSounds\/\" \"' + filename + '\";exit\"';
+function matchAudioSendEvent(filename) {
+
+	// build up command starting with the path to the matlab binary
+	var cmd = matlabPath + 'matlab -nojvm -nodisplay -nosplash -r \"matchSounds ';
+	// now add arguments. first the path to the event recordings folder 
+	cmd += '\"' +  __dirname + '/' + eventRecordings + filename + '\" ';
+	// add the second argument which is the folder with the sounds to match against
+	cmd += '\"' + __dirname + '/' + matchAgainst + '\" ';
+	// add the last argument which is the path+name of the file to write the results to
+	cmd += '\"' + __dirname + '/' + resultsFilename;
+	// add the exit command to exit matlab
+	cmd += '\";exit;\"';
+	console.log(cmd);
 
 	worker.exec(cmd, function(err, out, stderr) {
-		checkResults();
+		//console.log(out);
+		createEventBasedOnResults();
 	});
-}
 
-function checkResults() {
-	var result = fs.readFileSync(resultsFilename);
-	if (result === 'NO_MATCH') {
-		console.log('no match sorry');
-	} else {
-		console.log('match for: ' + result);
+function createEventBasedOnResults() {
+		var result = fs.readFileSync(resultsFilename);
+		if (result === 'NO_MATCH') {
+			console.log('no match sorry');
+			newEvent(false, null, filename);
+		} else {
+			console.log('match for: ' + result);
+			newEvent(true, result, filename);
+		}
 	}
 }
+
 
 net.createServer(function(sock) {
   sock.pipe(binary()
