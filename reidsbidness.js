@@ -16,8 +16,8 @@ var binary = require('binary');
 
 const httpPort = 9876;
 const tcp_port = 6969;
-const matchAgainst = './matchAgainst/';
-const eventRecordings = './eventRecordings/';
+const matchAgainst = 'matchAgainst/';
+const eventRecordings = 'eventRecordings/';
 const serverName = 'klement';
 const tcp_timeout = 10000;
 
@@ -26,6 +26,11 @@ var nameForNextNoise;
 
 fs.mkdir(matchAgainst, function(e) {});
 fs.mkdir(eventRecordings, function(e) {});
+
+var resultsFilename = 'results.txt';
+var worker = require('child_process');
+var matlabPath = process.env.MATLAB_BINARY;
+
 
 http.createServer(function(req, res) {
 	  // Parse req header
@@ -39,7 +44,8 @@ http.createServer(function(req, res) {
 			  var pathToNewFile;
 			  if (moveNextNoiseToMatchAgainst) {
 				  // save the file in the folder containing samples to match against
-				  pathToNewFile = matchAgainst + nameForNextNoise;
+					// add .wav to the file so the matlab script can interpret it
+				  pathToNewFile = matchAgainst + nameForNextNoise + '.wav';
 				  console.log("setting this noise as a match target: " + pathToNewFile);
 				  
 				  moveNextNoiseToMatchAgainst = false;
@@ -53,7 +59,7 @@ http.createServer(function(req, res) {
 				  // so give it the standard date/time formatted name and save it in
 				  // the event recordings directory. Then send a request to parse to 
 				  // send a push notification.
-				var filename = moment().format('YYYYMMDDHHmmss');
+				var filename = moment().format('YYYYMMDDHHmmss') + '.wav';
 				  pathToNewFile = eventRecordings + filename;
 				  console.log(pathToNewFile);
 				// At this point we will run the audio matching tool to see if
@@ -87,6 +93,22 @@ http.createServer(function(req, res) {
 						res.end('success deleting file: ' + header.query.filename);	
 					}
 				
+				});
+			} else {
+			  res.writeHeader(404);
+			  res.end('no filename specified');
+		  }
+	  } else if (header.pathname === '/deleteEventRecording') {
+		// delete this event recording
+			if ('filename' in header.query) {
+				fs.unlink(eventRecordings + header.query.filename, function(e) {
+					if (e) {
+						res.writeHeader(418);
+   				    	res.end('error ' + e.message);
+					} else {
+						res.writeHeader(200);
+						res.end('success deleting file: ' + header.query.filename);	
+					}
 				});
 			} else {
 			  res.writeHeader(404);
@@ -199,6 +221,9 @@ function newOptions(method, url) {
 }
 
 function newEvent(matchFound, matchFilename, eventRecordingFilename) {
+	if (matchFound) {
+		matchFilename = matchFilename.split('.')[0];
+	}
 	var req = https.request(newOptions('POST', '/1/classes/Event'), function(res) {
 	console.log('STATUS: ' + res.statusCode);
 	  console.log('HEADERS: ' + JSON.stringify(res.headers));
@@ -215,13 +240,13 @@ function newEvent(matchFound, matchFilename, eventRecordingFilename) {
 		// was found
 		"matchFilename" : matchFound ? matchFilename : null,
 		"eventFilename" : eventRecordingFilename,
-		"matchSoundName" : "not set yet" 
+		"matchSoundName" : "" 
 	};
+	console.log(body);
 	req.write(JSON.stringify(body));
 	req.end();
 }
 
-var matlabPath = process.env.MATLAB_BINARY;
 
 function matchAudioSendEvent(filename) {
 
@@ -238,15 +263,23 @@ function matchAudioSendEvent(filename) {
 	console.log(cmd);
 
 	worker.exec(cmd, function(err, out, stderr) {
-		//console.log(out);
+		console.log(out);
 		createEventBasedOnResults();
 	});
 
 function createEventBasedOnResults() {
-		var result = fs.readFileSync(resultsFilename);
+		// need to make the readFileSync call with these options set, otherwise
+		// the value returned is an array instead of a String
+		var options = {
+			encoding : "utf8"
+		};
+		var result = fs.readFileSync(resultsFilename, options);
 		if (result === 'NO_MATCH') {
 			console.log('no match sorry');
 			newEvent(false, null, filename);
+		} else if (result === '') {
+			// nothing in the file, error
+			console.log('error, nothing in the results file');
 		} else {
 			console.log('match for: ' + result);
 			newEvent(true, result, filename);
