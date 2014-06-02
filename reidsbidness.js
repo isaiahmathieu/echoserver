@@ -18,6 +18,7 @@ const httpPort = 9876;
 const tcp_port = 6969;
 const matchAgainst = 'matchAgainst/';
 const eventRecordings = 'eventRecordings/';
+const tempFiles = 'tempFiles/';
 const serverName = 'klement';
 const tcp_timeout = 10000;
 
@@ -26,10 +27,12 @@ var nameForNextNoise;
 
 fs.mkdir(matchAgainst, function(e) {});
 fs.mkdir(eventRecordings, function(e) {});
+fs.mkdir(tempFiles, function(e) {});
 
 var resultsFilename = 'results.txt';
 var worker = require('child_process');
 var matlabPath = process.env.MATLAB_BINARY;
+console.log("matlabPath: " + matlabPath);
 
 
 http.createServer(function(req, res) {
@@ -290,7 +293,7 @@ function createEventBasedOnResults() {
 
 net.createServer(function(sock) {
   sock.pipe(binary()
-    .word32bu('id')
+    .word32lu('id')
 	.word8bu('type')
 	.tap(function(vars) {
 	  if (vars.type == 1) {
@@ -306,7 +309,7 @@ net.createServer(function(sock) {
               console.log("channels: " + vars.channels);
 
 	      sock.unpipe();
-	      var sample = sample_dir + 'd'+vars.id + "_" + moment().format('MMDDYY_hhmmss') + ".pcm";
+	      var sample = tempFiles + moment().format('YYMMDD_hhmmss') + ".pcm";
              sock.pipe(fs.createWriteStream(sample));
              /*
 	      sock.pipe(wav.FileWriter(sample, {
@@ -317,16 +320,19 @@ net.createServer(function(sock) {
               }));
               */
               sock.on('end', function() {
-                sock.emit('file_written', vars.id, sample);
+                sock.emit('file_written', sample);
               });
 	    });
 	  } 
 	  else if (vars.type == 2) {
 	    // Status Message
             console.log("Setup Success: " + vars.id);
+/*
+
             var req = https.request(newOptions('POST', '/1/functions/setupSuccess'));
             req.write('{}');              
             req.end();
+*/
           }
 	  else {
 	    //bad message type
@@ -334,28 +340,44 @@ net.createServer(function(sock) {
 	  }
 	})
   );
-  sock.on('file_written', function(id, sample) {
-    var db = catal_dir+id;
-    fs.exists(db, function(exists) {
-      if(exists) {
-	var cmd = './audfprint -dbase '+catal_dir+id+' -match '+sample;
-        worker.exe(cmd, function(err, out, stderr) {
-          // Results of matching
-          console.log(out);
-        });    
-      }
-      else {
-        // Edge case of no db for device
-        // Wat do?
-        console.log('device: '+id+' has no db');
-      }
-    });
-  });
+  sock.on('file_written', function(sample) {
+	// the file has been written. the filename is passed as a parameter.
+	// make an http request to the http server to handle the matching
+	var nameAndPath = tempFiles + sample;
+	console.log('file to be uploaded to http server: ' + nameAndPath);
+	var options = {
+		hostname: 'localhost',
+		port: httpPort,
+		path: '/upload',
+		method: 'POST'
+	};
+
+	var req = http.request(options, function(res) {
+   	   console.log('STATUS: ' + res.statusCode);
+   	   console.log('HEADERS: ' + JSON.stringify(res.headers));
+   	   res.setEncoding('utf8');
+   	   res.on('data', function (chunk) {
+        console.log('BODY: ' + chunk);
+      }); 
+    }); 
+
+	req.on('error', function(e) {
+		console.log('problem with request: ' + e.message);
+	});
+
+	fs.readFile(nameAndPath, function(err, data) {
+        req.write(data);
+        req.end();
+    }); 
+
+ });
   sock.setTimeout(tcp_timeout, function() {
     sock.end('Connection Closed', 'utf8');
     console.log("timeout" + sock.remoteAddress);	
   });
+
   sock.on('error', function(e) {
+	console.log('an error occurred');
     console.log("error: " + e.message);
     sock.destroy();
   });

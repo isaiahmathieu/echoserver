@@ -25,7 +25,7 @@ var req = http.request(options, function(res) {
 	});
 
 	// write data to request body
-	fs.readFile("./dedede.wav", function(err, data) {
+	fs.readFile(process.argv[2], function(err, data) {
 		req.write(data);
 		req.end();
 	});
