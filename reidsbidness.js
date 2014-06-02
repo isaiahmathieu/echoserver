@@ -309,7 +309,7 @@ net.createServer(function(sock) {
               console.log("channels: " + vars.channels);
 
 	      sock.unpipe();
-	      var sample = tempFiles + moment().format('YYMMDD_hhmmss') + ".pcm";
+	      var sample = tempFiles + moment().format('YYYY-MM-DD_hh:mm:ss') + ".pcm";
              sock.pipe(fs.createWriteStream(sample));
              /*
 	      sock.pipe(wav.FileWriter(sample, {
@@ -343,7 +343,7 @@ net.createServer(function(sock) {
   sock.on('file_written', function(sample) {
 	// the file has been written. the filename is passed as a parameter.
 	// make an http request to the http server to handle the matching
-	var nameAndPath = tempFiles + sample;
+	var nameAndPath = sample;
 	console.log('file to be uploaded to http server: ' + nameAndPath);
 	var options = {
 		hostname: 'localhost',
@@ -371,10 +371,12 @@ net.createServer(function(sock) {
     }); 
 
  });
+/*
   sock.setTimeout(tcp_timeout, function() {
     sock.end('Connection Closed', 'utf8');
     console.log("timeout" + sock.remoteAddress);	
   });
+*/
 
   sock.on('error', function(e) {
 	console.log('an error occurred');
