@@ -13,7 +13,9 @@ matchSounds = dir(strcat(matchSoundsFolder, '*.wav'));
 delete(resultsFileName);
 fileID = fopen(resultsFileName, 'w');
 % get the data of the event file
-[eventData, eventFs] = audioread(eventFilePath);
+[eventData, eventFs] = wavread(eventFilePath);
+eventFs
+size(eventData)
 maxCC = 0;
 bestMatch = '';
 
@@ -22,7 +24,7 @@ for i = 1:length(matchSounds)
     matchFile = getfield(matchSounds(i), 'name');
     matchSounds(i)
     try
-    [matchData, matchFs] = audioread(strcat(matchSoundsFolder,matchFile));
+    [matchData, matchFs] = wavread(strcat(matchSoundsFolder,matchFile));
     CC = xCorrCoef(eventData, matchData,length(eventData));
     tmp = max(CC)
     if tmp > maxCC
@@ -44,6 +46,3 @@ else
 	fprintf(fileID,'NO_MATCH');
     disp('NO_MATCH');
 end
-
-
-

@@ -3,6 +3,8 @@
 8gpzmALgXCLoyd9yTKayNvg4wjLCvCrTVkCDrRr2
  */
 
+var wav = require('wav');
+
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
@@ -62,7 +64,7 @@ http.createServer(function(req, res) {
 				  // so give it the standard date/time formatted name and save it in
 				  // the event recordings directory. Then send a request to parse to 
 				  // send a push notification.
-				var filename = moment().format('YYYYMMDDHHmmss') + '.wav';
+				var filename = moment().format('YYYY-MM-DD_HH:mm:ss') + '.wav';
 				  pathToNewFile = eventRecordings + filename;
 				  console.log(pathToNewFile);
 				// At this point we will run the audio matching tool to see if
@@ -298,7 +300,7 @@ net.createServer(function(sock) {
 	.tap(function(vars) {
 	  if (vars.type == 1) {
             console.log("Sample Upload");
-            this.word32bu('sample_rate')
+            this.word32lu('sample_rate')
  	    .word8bu('bit_depth')
 	    .word8bu('channels')
 	    .tap(function(vars) {
@@ -309,16 +311,17 @@ net.createServer(function(sock) {
               console.log("channels: " + vars.channels);
 
 	      sock.unpipe();
-	      var sample = tempFiles + moment().format('YYYY-MM-DD_hh:mm:ss') + ".pcm";
-             sock.pipe(fs.createWriteStream(sample));
-             /*
+
+	      var sample = tempFiles + moment().format('YYYY-MM-DD_hh:mm:ss') + '.wav';
+
+             //sock.pipe(fs.createWriteStream(sample));
+
 	      sock.pipe(wav.FileWriter(sample, {
                 format: 1,
 	        channels: vars.channels,
 	        sampleRate: vars.sample_rate,
 	        bitDepth: vars.bit_depth
               }));
-              */
               sock.on('end', function() {
                 sock.emit('file_written', sample);
               });
@@ -327,12 +330,10 @@ net.createServer(function(sock) {
 	  else if (vars.type == 2) {
 	    // Status Message
             console.log("Setup Success: " + vars.id);
-/*
 
             var req = https.request(newOptions('POST', '/1/functions/setupSuccess'));
             req.write('{}');              
             req.end();
-*/
           }
 	  else {
 	    //bad message type

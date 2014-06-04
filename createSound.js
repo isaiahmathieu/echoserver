@@ -1,5 +1,5 @@
-//const hostname = "klement.cs.washington.edu";
-const hostname = "128.208.7.228";
+const hostname = "klement.cs.washington.edu";
+//const hostname = "128.208.7.228";
 
 var fs = require('fs');
 var http = require('http');
