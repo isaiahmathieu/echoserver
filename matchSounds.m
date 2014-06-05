@@ -3,6 +3,7 @@
 % a match, otherwise returns the string NO_MATCH
 function matchSounds(eventFilePath, matchSoundsFolder, resultsFileName)
 disp('event file path:');
+disp('test');
 disp(eventFilePath);
 disp('results file path:');
 disp(resultsFileName);
