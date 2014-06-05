@@ -237,6 +237,10 @@ function newEvent(matchFound, matchFilename, eventRecordingFilename) {
 	    console.log('BODY: ' + chunk);
 	  });
 	});
+	// error handling, such as if parse is down
+	req.on('error', function(e) {
+		console.error(e);
+	});
 
 
 	var body = {
@@ -248,6 +252,7 @@ function newEvent(matchFound, matchFilename, eventRecordingFilename) {
 		"action" : "org.cs.washington.cse477.NOTIFICATION_PUSH"
 	};
 	console.log(body);
+	
 	req.write(JSON.stringify(body));
 	req.end();
 }
@@ -322,7 +327,8 @@ net.createServer(function(sock) {
 	        sampleRate: vars.sample_rate,
 	        bitDepth: vars.bit_depth
               }));
-              sock.on('end', function() {
+              sock.on('close', function() {
+				console.log('about to emit file_written');
                 sock.emit('file_written', sample);
               });
 	    });
@@ -332,6 +338,9 @@ net.createServer(function(sock) {
             console.log("Setup Success: " + vars.id);
 
             var req = https.request(newOptions('POST', '/1/functions/setupSuccess'));
+			req.on('error', function(e) {
+				console.error(e);	
+			});
             req.write('{}');              
             req.end();
           }
